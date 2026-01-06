@@ -1,0 +1,28 @@
+# Python Dependencies for Cloud Automation Bot
+# Install with: pip install -r requirements.txt
+
+# Telegram Bot
+python-telegram-bot==20.7
+
+# Data Processing
+pandas==2.3.3
+openpyxl==3.1.5
+
+# Google Sheets
+gspread==6.2.1
+google-auth==2.41.1
+google-auth-oauthlib==1.2.3
+google-auth-httplib2==0.3.0
+google-api-python-client==2.187.0
+oauth2client==4.1.3
+
+# Date/Time
+python-dateutil==2.9.0.post0
+pytz==2025.2
+
+# HTTP/Networking (for Telegram and APIs)
+httpx==0.25.2
+requests==2.32.5
+
+# Other
+numpy==2.4.0
