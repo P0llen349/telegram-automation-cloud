@@ -36,7 +36,7 @@ class GoogleDriveQueue:
     Simple queue system using Google Drive.
     """
 
-    def __init__(self, credentials_json=None, parent_folder_id=None):
+    def __init__(self, credentials_json=None, parent_folder_id=None, commands_folder_id=None, results_folder_id=None):
         """
         Initialize Google Drive queue.
 
@@ -44,16 +44,18 @@ class GoogleDriveQueue:
             credentials_json: Path to service account credentials JSON file
                              or JSON string of credentials
             parent_folder_id: Optional parent folder ID (use existing folder instead of creating)
+            commands_folder_id: Optional commands folder ID (use existing instead of creating)
+            results_folder_id: Optional results folder ID (use existing instead of creating)
         """
         self.service = None
         self.queue_folder_id = parent_folder_id  # Use provided folder or create new
-        self.commands_folder_id = None
-        self.results_folder_id = None
+        self.commands_folder_id = commands_folder_id
+        self.results_folder_id = results_folder_id
 
         # Initialize Google Drive service
         self._init_service(credentials_json)
 
-        # Create queue folders
+        # Create/verify queue folders
         self._init_folders()
 
     def _init_service(self, credentials_json):
@@ -115,22 +117,31 @@ class GoogleDriveQueue:
             else:
                 logger.info(f"Using existing queue folder: {self.queue_folder_id}")
 
-            # Create subfolders
-            self.commands_folder_id = self._get_or_create_folder(
-                "commands",
-                parent_id=self.queue_folder_id
-            )
-            self.results_folder_id = self._get_or_create_folder(
-                "results",
-                parent_id=self.queue_folder_id
-            )
+            # Use existing subfolders or create new ones
+            if not self.commands_folder_id:
+                logger.info("Creating commands folder...")
+                self.commands_folder_id = self._get_or_create_folder(
+                    "commands",
+                    parent_id=self.queue_folder_id
+                )
+            else:
+                logger.info(f"Using existing commands folder: {self.commands_folder_id}")
+
+            if not self.results_folder_id:
+                logger.info("Creating results folder...")
+                self.results_folder_id = self._get_or_create_folder(
+                    "results",
+                    parent_id=self.queue_folder_id
+                )
+            else:
+                logger.info(f"Using existing results folder: {self.results_folder_id}")
 
             logger.info(f"✓ Queue folders ready")
             logger.info(f"  - Commands: {self.commands_folder_id}")
             logger.info(f"  - Results: {self.results_folder_id}")
 
         except Exception as e:
-            logger.error(f"Failed to create queue folders: {e}")
+            logger.error(f"Failed to setup queue folders: {e}")
             raise
 
     def _get_or_create_folder(self, folder_name, parent_id=None):

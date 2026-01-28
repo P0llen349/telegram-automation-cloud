@@ -29,6 +29,8 @@ from gdrive_queue import GoogleDriveQueue
 # Google Drive credentials
 GOOGLE_CREDENTIALS_FILE = Path(__file__).parent / "google_credentials.json"
 GOOGLE_DRIVE_FOLDER_ID = "1jrO6cbbbDxrjUOvcRhSfkRoAg85p5iih"  # Shared TelegramBotQueue folder
+GOOGLE_DRIVE_COMMANDS_FOLDER_ID = "1wRWZJOcpOM6yxvW9trf9yzYy1enkbrYn"  # commands subfolder
+GOOGLE_DRIVE_RESULTS_FOLDER_ID = "1px3IqwzNQ2KuwVbKc_UoMfd3EBgau3wt"  # results subfolder
 
 # Local automation script
 AUTOMATION_SCRIPT = Path("Z:/AAA-Mohammad Khair AbuShanab/ULTIMATE_BACKUP_FOLDER/Project_Organization/RUN_COMPLETE_AUTOMATION.bat")
@@ -265,7 +267,12 @@ def main():
     # Initialize Google Drive queue
     try:
         logger.info("Initializing Google Drive queue...")
-        queue = GoogleDriveQueue(str(GOOGLE_CREDENTIALS_FILE), parent_folder_id=GOOGLE_DRIVE_FOLDER_ID)
+        queue = GoogleDriveQueue(
+            str(GOOGLE_CREDENTIALS_FILE),
+            parent_folder_id=GOOGLE_DRIVE_FOLDER_ID,
+            commands_folder_id=GOOGLE_DRIVE_COMMANDS_FOLDER_ID,
+            results_folder_id=GOOGLE_DRIVE_RESULTS_FOLDER_ID
+        )
         logger.info("✓ Google Drive queue initialized")
     except Exception as e:
         logger.error(f"Failed to initialize Google Drive queue: {e}")
