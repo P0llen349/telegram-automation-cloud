@@ -29,8 +29,8 @@ from gdrive_queue import GoogleDriveQueue
 # Google Drive credentials
 GOOGLE_CREDENTIALS_FILE = Path(__file__).parent / "google_credentials.json"
 GOOGLE_DRIVE_FOLDER_ID = "1jrO6cbbbDxrjUOvcRhSfkRoAg85p5iih"  # Shared TelegramBotQueue folder
-GOOGLE_DRIVE_COMMANDS_FOLDER_ID = "1wRWZJOcpOM6yxvW9trf9yzYy1enkbrYn"  # commands subfolder
-GOOGLE_DRIVE_RESULTS_FOLDER_ID = "1px3IqwzNQ2KuwVbKc_UoMfd3EBgau3wt"  # results subfolder
+GOOGLE_DRIVE_COMMANDS_FOLDER_ID = "1KXAvAJu_-PCZiWMw-X3X8Alm4UBhR-3L"  # commands subfolder
+GOOGLE_DRIVE_RESULTS_FOLDER_ID = "1q98oa_FMebqfkRwBCAxe78wUHjjVC64b"  # results subfolder
 
 # Local automation script
 AUTOMATION_SCRIPT = Path("Z:/AAA-Mohammad Khair AbuShanab/ULTIMATE_BACKUP_FOLDER/Project_Organization/RUN_COMPLETE_AUTOMATION.bat")
