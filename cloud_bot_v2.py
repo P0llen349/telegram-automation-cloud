@@ -77,6 +77,7 @@ def init_queue():
     global queue
     try:
         logger.info("Initializing Google Drive queue...")
+        logger.info(f"GOOGLE_DRIVE_FOLDER_ID: {GOOGLE_DRIVE_FOLDER_ID}")
         import tempfile
         import base64
 
