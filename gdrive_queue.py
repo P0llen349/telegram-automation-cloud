@@ -36,16 +36,17 @@ class GoogleDriveQueue:
     Simple queue system using Google Drive.
     """
 
-    def __init__(self, credentials_json=None):
+    def __init__(self, credentials_json=None, parent_folder_id=None):
         """
         Initialize Google Drive queue.
 
         Args:
             credentials_json: Path to service account credentials JSON file
                              or JSON string of credentials
+            parent_folder_id: Optional parent folder ID (use existing folder instead of creating)
         """
         self.service = None
-        self.queue_folder_id = None
+        self.queue_folder_id = parent_folder_id  # Use provided folder or create new
         self.commands_folder_id = None
         self.results_folder_id = None
 
@@ -107,8 +108,12 @@ class GoogleDriveQueue:
     def _init_folders(self):
         """Create queue folder structure in Google Drive."""
         try:
-            # Create main queue folder
-            self.queue_folder_id = self._get_or_create_folder("TelegramBotQueue")
+            # Use existing queue folder or create new one
+            if not self.queue_folder_id:
+                logger.info("Creating new queue folder...")
+                self.queue_folder_id = self._get_or_create_folder("TelegramBotQueue")
+            else:
+                logger.info(f"Using existing queue folder: {self.queue_folder_id}")
 
             # Create subfolders
             self.commands_folder_id = self._get_or_create_folder(

@@ -46,6 +46,7 @@ TRIGGER_CODEWORD = os.getenv("TRIGGER_CODEWORD", "RUNNIT")
 # Google credentials
 GOOGLE_CREDENTIALS_JSON = os.getenv("GOOGLE_CREDENTIALS_JSON")
 GOOGLE_CREDENTIALS_BASE64 = os.getenv("GOOGLE_CREDENTIALS_BASE64")
+GOOGLE_DRIVE_FOLDER_ID = os.getenv("GOOGLE_DRIVE_FOLDER_ID")  # Shared folder ID
 
 # Polling settings
 RESULT_POLL_INTERVAL = 10  # Check for results every 10 seconds
@@ -93,8 +94,8 @@ def init_queue():
 
             logger.info(f"Credentials written to: {temp_creds.name}")
 
-            # Initialize queue with temp file
-            queue = GoogleDriveQueue(temp_creds.name)
+            # Initialize queue with temp file and folder ID
+            queue = GoogleDriveQueue(temp_creds.name, parent_folder_id=GOOGLE_DRIVE_FOLDER_ID)
 
         # Try regular JSON from environment variable
         elif GOOGLE_CREDENTIALS_JSON and not os.path.isfile(GOOGLE_CREDENTIALS_JSON):
@@ -118,13 +119,13 @@ def init_queue():
 
             logger.info(f"Credentials written to: {temp_creds.name}")
 
-            # Initialize queue with temp file
-            queue = GoogleDriveQueue(temp_creds.name)
+            # Initialize queue with temp file and folder ID
+            queue = GoogleDriveQueue(temp_creds.name, parent_folder_id=GOOGLE_DRIVE_FOLDER_ID)
 
         # Use file path directly (for local testing)
         else:
             logger.info("Using credentials file path...")
-            queue = GoogleDriveQueue(GOOGLE_CREDENTIALS_JSON)
+            queue = GoogleDriveQueue(GOOGLE_CREDENTIALS_JSON, parent_folder_id=GOOGLE_DRIVE_FOLDER_ID)
 
         logger.info("✓ Google Drive queue ready")
         return True
