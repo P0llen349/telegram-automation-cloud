@@ -61,29 +61,41 @@ class GoogleDriveQueue:
             # Handle credentials from environment variable or file
             if credentials_json and os.path.isfile(credentials_json):
                 # Load from file
+                logger.info("Loading credentials from file...")
                 credentials = service_account.Credentials.from_service_account_file(
                     credentials_json,
                     scopes=['https://www.googleapis.com/auth/drive']
                 )
             elif credentials_json:
                 # Load from JSON string
-                import json
-                creds_dict = json.loads(credentials_json)
+                logger.info("Loading credentials from string...")
+                creds_dict = json.loads(credentials_json.strip())
                 credentials = service_account.Credentials.from_service_account_info(
                     creds_dict,
                     scopes=['https://www.googleapis.com/auth/drive']
                 )
             else:
                 # Try from environment variable
+                logger.info("Loading credentials from environment variable...")
                 creds_json = os.getenv("GOOGLE_CREDENTIALS_JSON")
-                if creds_json:
-                    creds_dict = json.loads(creds_json)
-                    credentials = service_account.Credentials.from_service_account_info(
-                        creds_dict,
-                        scopes=['https://www.googleapis.com/auth/drive']
-                    )
-                else:
+                if not creds_json:
                     raise Exception("No Google credentials provided")
+
+                # Clean up the JSON string - remove extra whitespace, newlines
+                creds_json = creds_json.strip()
+
+                # Try to parse the JSON
+                try:
+                    creds_dict = json.loads(creds_json)
+                except json.JSONDecodeError as e:
+                    logger.error(f"JSON decode error: {e}")
+                    logger.error(f"First 100 chars of JSON: {creds_json[:100]}")
+                    raise Exception(f"Invalid JSON in GOOGLE_CREDENTIALS_JSON: {e}")
+
+                credentials = service_account.Credentials.from_service_account_info(
+                    creds_dict,
+                    scopes=['https://www.googleapis.com/auth/drive']
+                )
 
             self.service = build('drive', 'v3', credentials=credentials)
             logger.info("✓ Google Drive service initialized")

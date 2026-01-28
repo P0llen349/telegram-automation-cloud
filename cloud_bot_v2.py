@@ -75,11 +75,44 @@ def init_queue():
     global queue
     try:
         logger.info("Initializing Google Drive queue...")
-        queue = GoogleDriveQueue(GOOGLE_CREDENTIALS_JSON)
+
+        # If credentials are in environment variable, write to temp file
+        if GOOGLE_CREDENTIALS_JSON and not os.path.isfile(GOOGLE_CREDENTIALS_JSON):
+            logger.info("Writing credentials from environment to temp file...")
+            import tempfile
+
+            # Create temp file
+            temp_creds = tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False)
+
+            # Clean and write JSON
+            creds_json = GOOGLE_CREDENTIALS_JSON.strip()
+
+            # Remove any leading/trailing quotes if present
+            if creds_json.startswith('"') and creds_json.endswith('"'):
+                creds_json = creds_json[1:-1]
+            if creds_json.startswith("'") and creds_json.endswith("'"):
+                creds_json = creds_json[1:-1]
+
+            # Write to file
+            temp_creds.write(creds_json)
+            temp_creds.close()
+
+            logger.info(f"Credentials written to: {temp_creds.name}")
+
+            # Initialize queue with temp file
+            queue = GoogleDriveQueue(temp_creds.name)
+        else:
+            # Use file path directly
+            queue = GoogleDriveQueue(GOOGLE_CREDENTIALS_JSON)
+
         logger.info("✓ Google Drive queue ready")
         return True
     except Exception as e:
         logger.error(f"Failed to initialize Google Drive queue: {e}")
+        logger.error(f"Credentials type: {type(GOOGLE_CREDENTIALS_JSON)}")
+        if GOOGLE_CREDENTIALS_JSON:
+            logger.error(f"Credentials length: {len(GOOGLE_CREDENTIALS_JSON)}")
+            logger.error(f"First 50 chars: {GOOGLE_CREDENTIALS_JSON[:50] if len(GOOGLE_CREDENTIALS_JSON) > 50 else GOOGLE_CREDENTIALS_JSON}")
         return False
 
 # =============================================================================
