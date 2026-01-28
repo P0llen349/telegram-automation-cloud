@@ -45,6 +45,7 @@ TRIGGER_CODEWORD = os.getenv("TRIGGER_CODEWORD", "RUNNIT")
 
 # Google credentials
 GOOGLE_CREDENTIALS_JSON = os.getenv("GOOGLE_CREDENTIALS_JSON")
+GOOGLE_CREDENTIALS_BASE64 = os.getenv("GOOGLE_CREDENTIALS_BASE64")
 
 # Polling settings
 RESULT_POLL_INTERVAL = 10  # Check for results every 10 seconds
@@ -75,11 +76,29 @@ def init_queue():
     global queue
     try:
         logger.info("Initializing Google Drive queue...")
+        import tempfile
+        import base64
 
-        # If credentials are in environment variable, write to temp file
-        if GOOGLE_CREDENTIALS_JSON and not os.path.isfile(GOOGLE_CREDENTIALS_JSON):
-            logger.info("Writing credentials from environment to temp file...")
-            import tempfile
+        # Try base64 encoded credentials first (preferred for Railway)
+        if GOOGLE_CREDENTIALS_BASE64:
+            logger.info("Using base64 encoded credentials...")
+
+            # Decode from base64
+            creds_json = base64.b64decode(GOOGLE_CREDENTIALS_BASE64).decode('utf-8')
+
+            # Create temp file
+            temp_creds = tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False)
+            temp_creds.write(creds_json)
+            temp_creds.close()
+
+            logger.info(f"Credentials written to: {temp_creds.name}")
+
+            # Initialize queue with temp file
+            queue = GoogleDriveQueue(temp_creds.name)
+
+        # Try regular JSON from environment variable
+        elif GOOGLE_CREDENTIALS_JSON and not os.path.isfile(GOOGLE_CREDENTIALS_JSON):
+            logger.info("Using JSON credentials from environment...")
 
             # Create temp file
             temp_creds = tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False)
@@ -101,18 +120,18 @@ def init_queue():
 
             # Initialize queue with temp file
             queue = GoogleDriveQueue(temp_creds.name)
+
+        # Use file path directly (for local testing)
         else:
-            # Use file path directly
+            logger.info("Using credentials file path...")
             queue = GoogleDriveQueue(GOOGLE_CREDENTIALS_JSON)
 
         logger.info("✓ Google Drive queue ready")
         return True
     except Exception as e:
         logger.error(f"Failed to initialize Google Drive queue: {e}")
-        logger.error(f"Credentials type: {type(GOOGLE_CREDENTIALS_JSON)}")
-        if GOOGLE_CREDENTIALS_JSON:
-            logger.error(f"Credentials length: {len(GOOGLE_CREDENTIALS_JSON)}")
-            logger.error(f"First 50 chars: {GOOGLE_CREDENTIALS_JSON[:50] if len(GOOGLE_CREDENTIALS_JSON) > 50 else GOOGLE_CREDENTIALS_JSON}")
+        import traceback
+        logger.error(traceback.format_exc())
         return False
 
 # =============================================================================
