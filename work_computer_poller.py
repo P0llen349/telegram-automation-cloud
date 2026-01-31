@@ -22,6 +22,13 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from sheets_queue import GoogleSheetsQueue
 
+# Google Sheets API for reading results
+try:
+    from google.oauth2 import service_account
+    from googleapiclient.discovery import build
+except ImportError:
+    pass
+
 # =============================================================================
 # CONFIGURATION
 # =============================================================================
@@ -29,6 +36,8 @@ from sheets_queue import GoogleSheetsQueue
 # Google Sheets credentials
 GOOGLE_CREDENTIALS_FILE = Path(__file__).parent / "google_credentials.json"
 GOOGLE_SHEET_QUEUE_ID = "1bfdWgSWpk25wt0tq5PPLuLySfJ-Vm4Ou7TVR2gVprag"  # Queue sheet ID (same as cloud bot)
+GOOGLE_SHEET_RESULTS_ID = "13x58yfkrvA9_7bo-Wtzw6EwcPVCjE8x2IUmkF8c6Aro"  # Main results sheet
+DAILY_TICKET_TAB = "Copy of Daily ticket count"  # Tab with daily summary
 
 # Local automation script
 AUTOMATION_SCRIPT = Path("C:/Users/mshanab/AAA-Mohammad Khair AbuShanab/ULTIMATE_BACKUP_FOLDER/Project_Organization/RUN_COMPLETE_AUTOMATION_AUTO.bat")
@@ -55,6 +64,95 @@ logging.basicConfig(
     ]
 )
 logger = logging.getLogger(__name__)
+
+# =============================================================================
+# GOOGLE SHEETS SUMMARY READER
+# =============================================================================
+
+def read_daily_ticket_summary():
+    """
+    Read the daily ticket count summary from Google Sheets.
+    Returns a dict with summary data for Telegram.
+    """
+    try:
+        logger.info("Reading daily ticket summary from Google Sheets...")
+
+        # Initialize Google Sheets service
+        credentials = service_account.Credentials.from_service_account_file(
+            str(GOOGLE_CREDENTIALS_FILE),
+            scopes=['https://www.googleapis.com/auth/spreadsheets.readonly']
+        )
+        service = build('sheets', 'v4', credentials=credentials)
+
+        # Read the "Copy of Daily ticket count" tab
+        # Get the first 20 rows and columns A-Z
+        range_name = f"'{DAILY_TICKET_TAB}'!A1:Z20"
+
+        result = service.spreadsheets().values().get(
+            spreadsheetId=GOOGLE_SHEET_RESULTS_ID,
+            range=range_name
+        ).execute()
+
+        values = result.get('values', [])
+
+        if not values:
+            logger.warning("No data found in daily ticket summary")
+            return {}
+
+        # Parse the pivot table
+        # First row is headers (dates)
+        # First column is connection types
+        # Last row/column is "Total"
+
+        headers = values[0] if values else []
+        summary = {
+            "total_tickets": 0,
+            "by_connection_type": {},
+            "latest_date": "",
+            "latest_day_total": 0
+        }
+
+        # Find the Total row and latest date column
+        for row in values[1:]:
+            if not row:
+                continue
+            connection_type = row[0] if row else ""
+
+            # Get the Total (last column with data)
+            if connection_type == "Total" and len(row) > 1:
+                # Find the total column
+                for i, val in enumerate(row[1:], 1):
+                    if headers[i] == "Total" if i < len(headers) else False:
+                        try:
+                            summary["total_tickets"] = int(val)
+                        except:
+                            pass
+                # Get latest date total (second to last value before Total)
+                if len(row) >= 3:
+                    try:
+                        summary["latest_day_total"] = int(row[-2]) if row[-2] != "Total" else int(row[-3])
+                    except:
+                        pass
+            elif connection_type and connection_type != "Total":
+                # Get total for this connection type (last column)
+                if len(row) > 1:
+                    try:
+                        total = int(row[-1]) if row[-1] else 0
+                        summary["by_connection_type"][connection_type] = total
+                    except:
+                        pass
+
+        # Get latest date from headers
+        date_headers = [h for h in headers[1:] if h and h != "Total"]
+        if date_headers:
+            summary["latest_date"] = date_headers[-1]
+
+        logger.info(f"Summary: Total={summary['total_tickets']}, Latest date={summary['latest_date']}")
+        return summary
+
+    except Exception as e:
+        logger.error(f"Error reading daily ticket summary: {e}")
+        return {}
 
 # =============================================================================
 # AUTOMATION RUNNER
@@ -146,6 +244,11 @@ def run_local_automation():
 
             logger.info(success_msg)
 
+            # Read ticket summary from Google Sheets
+            ticket_summary = {}
+            if workflow_success and uploaded_to_sheets:
+                ticket_summary = read_daily_ticket_summary()
+
             data = {
                 "duration": duration,
                 "email_subject": email_subject,
@@ -153,7 +256,8 @@ def run_local_automation():
                 "files_downloaded": files_downloaded,
                 "workflow_success": workflow_success,
                 "uploaded_to_sheets": uploaded_to_sheets,
-                "sheets_url": "https://docs.google.com/spreadsheets/d/13x58yfkrvA9_7bo-Wtzw6EwcPVCjE8x2IUmkF8c6Aro/edit"
+                "sheets_url": "https://docs.google.com/spreadsheets/d/13x58yfkrvA9_7bo-Wtzw6EwcPVCjE8x2IUmkF8c6Aro/edit",
+                "ticket_summary": ticket_summary
             }
 
             return True, success_msg, data

@@ -346,6 +346,27 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
                     if data.get('uploaded_to_sheets'):
                         message += "* Upload to Sheets: Done\n"
 
+                    # Ticket Summary
+                    ticket_summary = data.get('ticket_summary', {})
+                    if ticket_summary:
+                        message += "\n*--- TICKET SUMMARY ---*\n"
+
+                        if ticket_summary.get('total_tickets'):
+                            message += f"*Total Tickets:* {ticket_summary['total_tickets']}\n"
+
+                        if ticket_summary.get('latest_date'):
+                            message += f"*Latest Date:* {ticket_summary['latest_date']}\n"
+
+                        if ticket_summary.get('latest_day_total'):
+                            message += f"*Today's Tickets:* {ticket_summary['latest_day_total']}\n"
+
+                        # Breakdown by connection type
+                        by_type = ticket_summary.get('by_connection_type', {})
+                        if by_type:
+                            message += "\n*By Connection Type:*\n"
+                            for conn_type, count in sorted(by_type.items(), key=lambda x: x[1], reverse=True)[:5]:
+                                message += f"  {conn_type}: {count}\n"
+
                     # Duration
                     if data.get('duration'):
                         message += f"\n*Time:* {data['duration']:.1f} seconds\n"
