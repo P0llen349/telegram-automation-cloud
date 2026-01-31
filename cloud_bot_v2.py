@@ -1,16 +1,16 @@
 """
-CLOUD AUTOMATION BOT V2 - Google Drive Queue Version
-=====================================================
+CLOUD AUTOMATION BOT V2 - Google Sheets Queue Version
+======================================================
 
-Telegram bot that uses Google Drive as a queue to trigger local automation.
+Telegram bot that uses Google Sheets as a queue to trigger local automation.
 
 Architecture:
 - Bot receives "RUNNIT" command from Telegram
-- Writes command to Google Drive queue
-- Polls Google Drive for results
+- Writes command to Google Sheets queue (append row)
+- Polls Google Sheets for results
 - Sends results back to Telegram
 
-Work computer polls Google Drive and runs local automation when command found.
+Work computer polls Google Sheets and runs local automation when command found.
 
 Author: Mohammad Khair AbuShanab
 Created: January 28, 2026
@@ -32,7 +32,7 @@ except ImportError:
     sys.exit(1)
 
 # Local imports
-from gdrive_queue import GoogleDriveQueue
+from sheets_queue import GoogleSheetsQueue
 
 # =============================================================================
 # CONFIGURATION - From Environment Variables
@@ -46,9 +46,7 @@ TRIGGER_CODEWORD = os.getenv("TRIGGER_CODEWORD", "RUNNIT")
 # Google credentials
 GOOGLE_CREDENTIALS_JSON = os.getenv("GOOGLE_CREDENTIALS_JSON")
 GOOGLE_CREDENTIALS_BASE64 = os.getenv("GOOGLE_CREDENTIALS_BASE64")
-GOOGLE_DRIVE_FOLDER_ID = os.getenv("GOOGLE_DRIVE_FOLDER_ID")  # Shared folder ID
-GOOGLE_DRIVE_COMMANDS_FOLDER_ID = os.getenv("GOOGLE_DRIVE_COMMANDS_FOLDER_ID", "1KXAvAJu_-PCZiWMw-X3X8Alm4UBhR-3L")
-GOOGLE_DRIVE_RESULTS_FOLDER_ID = os.getenv("GOOGLE_DRIVE_RESULTS_FOLDER_ID", "1q98oa_FMebqfkRwBCAxe78wUHjjVC64b")
+GOOGLE_SHEET_QUEUE_ID = os.getenv("GOOGLE_SHEET_QUEUE_ID", "1ZvtEXRvJSm9c_IDJJyaV90Vs7vE50UoSrwlh8uAqyGU")  # Queue sheet ID
 
 # Polling settings
 RESULT_POLL_INTERVAL = 10  # Check for results every 10 seconds
@@ -75,11 +73,11 @@ logger = logging.getLogger(__name__)
 queue = None
 
 def init_queue():
-    """Initialize Google Drive queue."""
+    """Initialize Google Sheets queue."""
     global queue
     try:
-        logger.info("Initializing Google Drive queue...")
-        logger.info(f"GOOGLE_DRIVE_FOLDER_ID: {GOOGLE_DRIVE_FOLDER_ID}")
+        logger.info("Initializing Google Sheets queue...")
+        logger.info(f"GOOGLE_SHEET_QUEUE_ID: {GOOGLE_SHEET_QUEUE_ID}")
         import tempfile
         import base64
 
@@ -97,12 +95,10 @@ def init_queue():
 
             logger.info(f"Credentials written to: {temp_creds.name}")
 
-            # Initialize queue with temp file and folder IDs
-            queue = GoogleDriveQueue(
+            # Initialize queue with temp file and sheet ID
+            queue = GoogleSheetsQueue(
                 temp_creds.name,
-                parent_folder_id=GOOGLE_DRIVE_FOLDER_ID,
-                commands_folder_id=GOOGLE_DRIVE_COMMANDS_FOLDER_ID,
-                results_folder_id=GOOGLE_DRIVE_RESULTS_FOLDER_ID
+                sheet_id=GOOGLE_SHEET_QUEUE_ID
             )
 
         # Try regular JSON from environment variable
@@ -127,28 +123,24 @@ def init_queue():
 
             logger.info(f"Credentials written to: {temp_creds.name}")
 
-            # Initialize queue with temp file and folder IDs
-            queue = GoogleDriveQueue(
+            # Initialize queue with temp file and sheet ID
+            queue = GoogleSheetsQueue(
                 temp_creds.name,
-                parent_folder_id=GOOGLE_DRIVE_FOLDER_ID,
-                commands_folder_id=GOOGLE_DRIVE_COMMANDS_FOLDER_ID,
-                results_folder_id=GOOGLE_DRIVE_RESULTS_FOLDER_ID
+                sheet_id=GOOGLE_SHEET_QUEUE_ID
             )
 
         # Use file path directly (for local testing)
         else:
             logger.info("Using credentials file path...")
-            queue = GoogleDriveQueue(
+            queue = GoogleSheetsQueue(
                 GOOGLE_CREDENTIALS_JSON,
-                parent_folder_id=GOOGLE_DRIVE_FOLDER_ID,
-                commands_folder_id=GOOGLE_DRIVE_COMMANDS_FOLDER_ID,
-                results_folder_id=GOOGLE_DRIVE_RESULTS_FOLDER_ID
+                sheet_id=GOOGLE_SHEET_QUEUE_ID
             )
 
-        logger.info("✓ Google Drive queue ready")
+        logger.info("✓ Google Sheets queue ready")
         return True
     except Exception as e:
-        logger.error(f"Failed to initialize Google Drive queue: {e}")
+        logger.error(f"Failed to initialize Google Sheets queue: {e}")
         import traceback
         logger.error(traceback.format_exc())
         return False
@@ -180,7 +172,7 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         f"• `{TRIGGER_CODEWORD}` - Run automation\n"
         "• `/status` - Check status\n"
         "• `/help` - Show help\n\n"
-        "☁️ Using Google Drive queue!\n"
+        "☁️ Using Google Sheets queue!\n"
         "💻 Work computer will process your request"
     )
 
@@ -235,7 +227,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         f"Send `{TRIGGER_CODEWORD}`\n\n"
         "📋 *How it works:*\n"
         "1️⃣ You send command from anywhere\n"
-        "2️⃣ Bot writes to Google Drive queue\n"
+        "2️⃣ Bot writes to Google Sheets queue\n"
         "3️⃣ Your work computer picks it up\n"
         "4️⃣ Automation runs on work computer\n"
         "5️⃣ Results sent back via queue\n"
@@ -271,7 +263,7 @@ async def wait_for_result(command_id: str, update: Update) -> Optional[dict]:
                 logger.info(f"✓ Result received for {command_id}")
 
                 # Delete result file
-                queue.delete_result(result['file_id'])
+                queue.delete_result(row_number=result.get('row_number'))
 
                 return result
 
@@ -313,14 +305,14 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         # Send initial confirmation
         await update.message.reply_text(
             "🚀 *Automation Triggered!*\n\n"
-            "📝 Writing command to Google Drive queue...\n"
+            "📝 Writing command to Google Sheets queue...\n"
             "⏳ Waiting for your work computer to pick it up...\n\n"
             "This may take 20-60 seconds depending on polling interval.",
             parse_mode='Markdown'
         )
 
         try:
-            # Write command to Google Drive queue
+            # Write command to Google Sheets queue
             command_id = queue.write_command("RUNNIT", {
                 "user_id": user_id,
                 "timestamp": datetime.now().isoformat()
@@ -329,7 +321,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             if not command_id:
                 await update.message.reply_text(
                     "❌ *Failed to write command*\n\n"
-                    "Could not write to Google Drive queue.",
+                    "Could not write to Google Sheets queue.",
                     parse_mode='Markdown'
                 )
                 return
@@ -419,7 +411,7 @@ def main():
     logger.info(f"Trigger codeword: {TRIGGER_CODEWORD}")
     logger.info("="*70)
 
-    # Initialize Google Drive queue
+    # Initialize Google Sheets queue
     if not init_queue():
         logger.error("Failed to initialize queue. Exiting.")
         sys.exit(1)
@@ -437,7 +429,7 @@ def main():
 
         # Start polling
         logger.info("Bot is now running... Press Ctrl+C to stop")
-        logger.info("Using Google Drive queue for work computer communication")
+        logger.info("Using Google Sheets queue for work computer communication")
         application.run_polling(
             poll_interval=30,
             timeout=10,

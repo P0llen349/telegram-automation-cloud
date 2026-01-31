@@ -2,7 +2,7 @@
 WORK COMPUTER POLLER
 ====================
 
-Runs on your work computer and polls Google Drive for automation commands.
+Runs on your work computer and polls Google Sheets for automation commands.
 When a command is found, runs the local automation and writes results back.
 
 Author: Mohammad Khair AbuShanab
@@ -20,17 +20,15 @@ from pathlib import Path
 # Add current directory to path
 sys.path.insert(0, str(Path(__file__).parent))
 
-from gdrive_queue import GoogleDriveQueue
+from sheets_queue import GoogleSheetsQueue
 
 # =============================================================================
 # CONFIGURATION
 # =============================================================================
 
-# Google Drive credentials
+# Google Sheets credentials
 GOOGLE_CREDENTIALS_FILE = Path(__file__).parent / "google_credentials.json"
-GOOGLE_DRIVE_FOLDER_ID = "1jrO6cbbbDxrjUOvcRhSfkRoAg85p5iih"  # Shared TelegramBotQueue folder
-GOOGLE_DRIVE_COMMANDS_FOLDER_ID = "1KXAvAJu_-PCZiWMw-X3X8Alm4UBhR-3L"  # commands subfolder
-GOOGLE_DRIVE_RESULTS_FOLDER_ID = "1q98oa_FMebqfkRwBCAxe78wUHjjVC64b"  # results subfolder
+GOOGLE_SHEET_QUEUE_ID = "1ZvtEXRvJSm9c_IDJJyaV90Vs7vE50UoSrwlh8uAqyGU"  # Queue sheet ID
 
 # Local automation script
 AUTOMATION_SCRIPT = Path("Z:/AAA-Mohammad Khair AbuShanab/ULTIMATE_BACKUP_FOLDER/Project_Organization/RUN_COMPLETE_AUTOMATION.bat")
@@ -169,7 +167,7 @@ def process_command(queue, command):
             success, message, data = run_local_automation()
 
             # Write result to queue
-            logger.info("Writing result to Google Drive...")
+            logger.info("Writing result to Google Sheets...")
             result_id = queue.write_result(command_id, success, message, data)
 
             if result_id:
@@ -179,14 +177,14 @@ def process_command(queue, command):
 
             # Delete command file
             logger.info("Deleting command file...")
-            queue.delete_command(file_id)
+            queue.delete_command(row_number=command.get('row_number'))
 
             return True
 
         else:
             logger.warning(f"Unknown command type: {command_type}")
             # Delete unknown command
-            queue.delete_command(file_id)
+            queue.delete_command(row_number=command.get('row_number'))
             return False
 
     except Exception as e:
@@ -264,18 +262,16 @@ def main():
         logger.error("Please update AUTOMATION_SCRIPT path in this file")
         return
 
-    # Initialize Google Drive queue
+    # Initialize Google Sheets queue
     try:
-        logger.info("Initializing Google Drive queue...")
-        queue = GoogleDriveQueue(
+        logger.info("Initializing Google Sheets queue...")
+        queue = GoogleSheetsQueue(
             str(GOOGLE_CREDENTIALS_FILE),
-            parent_folder_id=GOOGLE_DRIVE_FOLDER_ID,
-            commands_folder_id=GOOGLE_DRIVE_COMMANDS_FOLDER_ID,
-            results_folder_id=GOOGLE_DRIVE_RESULTS_FOLDER_ID
+            sheet_id=GOOGLE_SHEET_QUEUE_ID
         )
-        logger.info("✓ Google Drive queue initialized")
+        logger.info("✓ Google Sheets queue initialized")
     except Exception as e:
-        logger.error(f"Failed to initialize Google Drive queue: {e}")
+        logger.error(f"Failed to initialize Google Sheets queue: {e}")
         logger.error("Make sure google_credentials.json exists in the same folder")
         return
 
