@@ -310,8 +310,7 @@ def process_command(queue, command):
     """
     try:
         command_type = command.get('command')
-        command_id = command.get('filename', '').replace('.json', '')
-        file_id = command.get('file_id')
+        command_id = command.get('command_id', '')  # Fixed: use command_id from Sheets queue
 
         logger.info("="*70)
         logger.info(f"PROCESSING COMMAND: {command_type}")
