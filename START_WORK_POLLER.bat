@@ -4,7 +4,7 @@ echo       WORK COMPUTER POLLER - Start Script
 echo ================================================================
 echo.
 echo This script will:
-echo   1. Start polling Google Drive for automation commands
+echo   1. Start polling Google Sheets for automation commands
 echo   2. Run local automation when commands are found
 echo   3. Report results back to Telegram bot
 echo.
@@ -17,7 +17,7 @@ echo.
 cd /d "%~dp0"
 
 echo [INFO] Using Python from Project_Organization folder...
-set PYTHON_EXE=Z:\AAA-Mohammad Khair AbuShanab\ULTIMATE_BACKUP_FOLDER\Project_Organization\Python\python.exe
+set PYTHON_EXE=C:\Users\mshanab\AAA-Mohammad Khair AbuShanab\ULTIMATE_BACKUP_FOLDER\Project_Organization\Python\python.exe
 
 if not exist "%PYTHON_EXE%" (
     echo [ERROR] Python not found at: %PYTHON_EXE%
