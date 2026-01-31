@@ -34,7 +34,7 @@ GOOGLE_SHEET_QUEUE_ID = "1bfdWgSWpk25wt0tq5PPLuLySfJ-Vm4Ou7TVR2gVprag"  # Queue 
 AUTOMATION_SCRIPT = Path("C:/Users/mshanab/AAA-Mohammad Khair AbuShanab/ULTIMATE_BACKUP_FOLDER/Project_Organization/RUN_COMPLETE_AUTOMATION_AUTO.bat")
 
 # Polling settings
-POLL_INTERVAL = 30  # Check every 30 seconds
+POLL_INTERVAL = 15  # Check every 15 seconds
 
 # =============================================================================
 # LOGGING CONFIGURATION
