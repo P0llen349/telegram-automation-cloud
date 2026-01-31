@@ -72,6 +72,13 @@ logger = logging.getLogger(__name__)
 def read_daily_ticket_summary():
     """
     Read the daily ticket count summary from Google Sheets.
+
+    Sheet structure (from screenshot):
+    - Column A: Connection type (طريقة الاتصال)
+    - Column B: Total count
+    - Rows: WiFi=112, Cellular=108, NO TECH=46, etc.
+    - Last row: Total=321
+
     Returns a dict with summary data for Telegram.
     """
     try:
@@ -91,15 +98,17 @@ def read_daily_ticket_summary():
         ]
 
         values = []
+        used_tab_name = ""
         for tab_name in tab_names_to_try:
             try:
-                range_name = f"'{tab_name}'!A1:Z20"
+                range_name = f"'{tab_name}'!A1:B20"
                 result = service.spreadsheets().values().get(
                     spreadsheetId=GOOGLE_SHEET_RESULTS_ID,
                     range=range_name
                 ).execute()
                 values = result.get('values', [])
                 if values:
+                    used_tab_name = tab_name
                     logger.info(f"Found data in tab: {tab_name}")
                     break
             except Exception as e:
@@ -110,71 +119,48 @@ def read_daily_ticket_summary():
             logger.warning("No data found in daily ticket summary")
             return {}
 
-        # Parse the pivot table
-        # Row 0: Headers (connection type, dates..., Total)
-        # Row 1+: Connection types with counts per date
-        # Last row: Total row with totals per date
-
-        headers = values[0] if values else []
-        logger.info(f"Headers found: {headers[:5]}... (total {len(headers)} columns)")
+        # Log raw data for debugging
+        logger.info(f"Raw data from sheet ({len(values)} rows):")
+        for i, row in enumerate(values[:12]):
+            logger.info(f"  Row {i}: {row}")
 
         summary = {
             "total_tickets": 0,
             "by_connection_type": {},
-            "latest_date": "",
+            "latest_date": datetime.now().strftime("%Y-%m-%d"),  # Use today's date
             "latest_day_total": 0
         }
 
-        # Find date columns (skip first column which is connection type label)
-        date_columns = []
-        total_col_index = -1
-        for i, h in enumerate(headers):
-            if h == "Total":
-                total_col_index = i
-            elif i > 0 and h:  # Skip first column, must have value
-                date_columns.append((i, h))
-
-        if date_columns:
-            # Latest date is the last date column before Total
-            summary["latest_date"] = date_columns[-1][1]
-            logger.info(f"Latest date column: {summary['latest_date']}")
-
-        # Parse each row
+        # Simple structure: Column A = type, Column B = total
+        # Skip header row (row 0), parse data rows
         for row in values[1:]:
             if not row or len(row) < 2:
                 continue
 
             connection_type = str(row[0]).strip() if row[0] else ""
 
-            if connection_type == "Total":
-                # This is the totals row
-                # Get grand total from Total column
-                if total_col_index > 0 and total_col_index < len(row):
-                    try:
-                        summary["total_tickets"] = int(float(row[total_col_index]))
-                    except:
-                        pass
+            # Skip empty rows
+            if not connection_type:
+                continue
 
-                # Get latest day total (from the last date column)
-                if date_columns:
-                    last_date_idx = date_columns[-1][0]
-                    if last_date_idx < len(row):
-                        try:
-                            summary["latest_day_total"] = int(float(row[last_date_idx]))
-                        except:
-                            pass
+            # Try to parse the count from column B
+            try:
+                count = int(float(row[1]))
+            except (ValueError, IndexError):
+                continue
 
-            elif connection_type:
-                # Regular connection type row - get its total
-                if total_col_index > 0 and total_col_index < len(row):
-                    try:
-                        total = int(float(row[total_col_index]))
-                        if total > 0:
-                            summary["by_connection_type"][connection_type] = total
-                    except:
-                        pass
+            if connection_type.lower() == "total":
+                # This is the grand total row
+                summary["total_tickets"] = count
+                summary["latest_day_total"] = count  # Same as total for this simple view
+                logger.info(f"Found grand total: {count}")
+            else:
+                # Regular connection type row
+                if count > 0:
+                    summary["by_connection_type"][connection_type] = count
+                    logger.info(f"Found type: {connection_type} = {count}")
 
-        logger.info(f"Summary: Total={summary['total_tickets']}, Latest date={summary['latest_date']}, Types={len(summary['by_connection_type'])}")
+        logger.info(f"Summary parsed: Total={summary['total_tickets']}, Types={len(summary['by_connection_type'])}")
         return summary
 
     except Exception as e:
