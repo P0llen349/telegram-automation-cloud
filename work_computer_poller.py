@@ -96,26 +96,63 @@ def run_local_automation():
         logger.info(f"Automation completed in {duration:.1f} seconds")
         logger.info(f"Return code: {result.returncode}")
 
-        if result.returncode == 0:
-            # Success!
-            success_msg = f"Automation completed successfully in {duration:.1f}s"
-            logger.info(success_msg)
+        # DEBUG: Log the actual output (full)
+        if result.stdout:
+            logger.info(f"STDOUT (length={len(result.stdout)}):\n{result.stdout}")
+        if result.stderr:
+            logger.info(f"STDERR:\n{result.stderr}")
 
-            # Parse output for ticket count (optional)
-            tickets_processed = 0
-            output_lines = result.stdout.split('\n')
-            for line in output_lines:
-                if 'tickets' in line.lower() and 'processed' in line.lower():
-                    # Try to extract number
-                    import re
-                    match = re.search(r'(\d+)', line)
-                    if match:
-                        tickets_processed = int(match.group(1))
-                        break
+        if result.returncode == 0:
+            # Success! Parse details from output
+            import re
+            output = result.stdout
+
+            # Extract details from output
+            email_subject = ""
+            email_date = ""
+            files_downloaded = 0
+            workflow_success = False
+            uploaded_to_sheets = False
+
+            # Parse email subject
+            subject_match = re.search(r'Subject\s*:\s*(.+)', output)
+            if subject_match:
+                email_subject = subject_match.group(1).strip()
+
+            # Parse email date
+            date_match = re.search(r'Date Received\s*:\s*(.+)', output)
+            if date_match:
+                email_date = date_match.group(1).strip()
+
+            # Parse files downloaded
+            files_match = re.search(r'Downloaded (\d+) new file', output)
+            if files_match:
+                files_downloaded = int(files_match.group(1))
+
+            # Check for success markers
+            if '[SUCCESS] COMPLETE WORKFLOW FINISHED SUCCESSFULLY' in output:
+                workflow_success = True
+
+            if 'Data uploaded to Google Sheets' in output:
+                uploaded_to_sheets = True
+
+            # Build detailed message
+            if workflow_success:
+                success_msg = f"Workflow completed in {duration:.1f}s"
+                if email_subject:
+                    success_msg = f"Processed: {email_subject[:50]}"
+            else:
+                success_msg = f"Automation ran in {duration:.1f}s (check logs)"
+
+            logger.info(success_msg)
 
             data = {
                 "duration": duration,
-                "tickets_processed": tickets_processed,
+                "email_subject": email_subject,
+                "email_date": email_date,
+                "files_downloaded": files_downloaded,
+                "workflow_success": workflow_success,
+                "uploaded_to_sheets": uploaded_to_sheets,
                 "sheets_url": "https://docs.google.com/spreadsheets/d/13x58yfkrvA9_7bo-Wtzw6EwcPVCjE8x2IUmkF8c6Aro/edit"
             }
 

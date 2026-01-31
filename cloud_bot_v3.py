@@ -326,21 +326,33 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             if result:
                 # Got result!
                 if result.get('success'):
-                    message = (
-                        "*AUTOMATION COMPLETED!*\n\n"
-                        f"{result.get('message', 'Automation finished successfully')}\n\n"
-                    )
-
-                    # Add any additional data
                     data = result.get('data', {})
-                    if data:
-                        message += "*Details:*\n"
-                        if 'tickets_processed' in data:
-                            message += f"* Tickets: {data['tickets_processed']}\n"
-                        if 'duration' in data:
-                            message += f"* Duration: {data['duration']:.1f}s\n"
-                        if 'sheets_url' in data:
-                            message += f"\n[View Google Sheets]({data['sheets_url']})"
+
+                    # Build rich message with all details
+                    message = "*AUTOMATION COMPLETED!*\n\n"
+
+                    # Email info
+                    if data.get('email_subject'):
+                        message += f"*Email:* {data['email_subject'][:60]}\n"
+                    if data.get('email_date'):
+                        message += f"*Date:* {data['email_date']}\n"
+
+                    message += "\n"
+
+                    # Status indicators
+                    if data.get('workflow_success'):
+                        message += "* Download: Done\n"
+                        message += "* Processing: Done\n"
+                    if data.get('uploaded_to_sheets'):
+                        message += "* Upload to Sheets: Done\n"
+
+                    # Duration
+                    if data.get('duration'):
+                        message += f"\n*Time:* {data['duration']:.1f} seconds\n"
+
+                    # Link to sheets
+                    if data.get('sheets_url'):
+                        message += f"\n[Open Google Sheets]({data['sheets_url']})"
 
                     await update.message.reply_text(message, parse_mode='Markdown')
                 else:
