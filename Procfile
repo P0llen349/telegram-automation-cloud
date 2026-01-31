@@ -1,1 +1,1 @@
-worker: python cloud_bot_v2.py
+worker: python cloud_bot_v3.py
