@@ -37,7 +37,7 @@ except ImportError:
 GOOGLE_CREDENTIALS_FILE = Path(__file__).parent / "google_credentials.json"
 GOOGLE_SHEET_QUEUE_ID = "1bfdWgSWpk25wt0tq5PPLuLySfJ-Vm4Ou7TVR2gVprag"  # Queue sheet ID (same as cloud bot)
 GOOGLE_SHEET_RESULTS_ID = "13x58yfkrvA9_7bo-Wtzw6EwcPVCjE8x2IUmkF8c6Aro"  # Main results sheet
-DAILY_TICKET_TAB = "Copy of Daily ticket count"  # Tab with daily summary
+DAILY_TICKET_TAB = "Copy of Daily ticket count"  # Tab with daily summary (try both names)
 
 # Local automation script
 AUTOMATION_SCRIPT = Path("C:/Users/mshanab/AAA-Mohammad Khair AbuShanab/ULTIMATE_BACKUP_FOLDER/Project_Organization/RUN_COMPLETE_AUTOMATION_AUTO.bat")
@@ -84,27 +84,40 @@ def read_daily_ticket_summary():
         )
         service = build('sheets', 'v4', credentials=credentials)
 
-        # Read the "Copy of Daily ticket count" tab
-        # Get the first 20 rows and columns A-Z
-        range_name = f"'{DAILY_TICKET_TAB}'!A1:Z20"
+        # Try different tab names (Google Sheets may add "Copy of" prefix)
+        tab_names_to_try = [
+            "Copy of Daily ticket count",
+            "Daily ticket count"
+        ]
 
-        result = service.spreadsheets().values().get(
-            spreadsheetId=GOOGLE_SHEET_RESULTS_ID,
-            range=range_name
-        ).execute()
-
-        values = result.get('values', [])
+        values = []
+        for tab_name in tab_names_to_try:
+            try:
+                range_name = f"'{tab_name}'!A1:Z20"
+                result = service.spreadsheets().values().get(
+                    spreadsheetId=GOOGLE_SHEET_RESULTS_ID,
+                    range=range_name
+                ).execute()
+                values = result.get('values', [])
+                if values:
+                    logger.info(f"Found data in tab: {tab_name}")
+                    break
+            except Exception as e:
+                logger.info(f"Tab '{tab_name}' not found, trying next...")
+                continue
 
         if not values:
             logger.warning("No data found in daily ticket summary")
             return {}
 
         # Parse the pivot table
-        # First row is headers (dates)
-        # First column is connection types
-        # Last row/column is "Total"
+        # Row 0: Headers (connection type, dates..., Total)
+        # Row 1+: Connection types with counts per date
+        # Last row: Total row with totals per date
 
         headers = values[0] if values else []
+        logger.info(f"Headers found: {headers[:5]}... (total {len(headers)} columns)")
+
         summary = {
             "total_tickets": 0,
             "by_connection_type": {},
@@ -112,46 +125,62 @@ def read_daily_ticket_summary():
             "latest_day_total": 0
         }
 
-        # Find the Total row and latest date column
-        for row in values[1:]:
-            if not row:
-                continue
-            connection_type = row[0] if row else ""
+        # Find date columns (skip first column which is connection type label)
+        date_columns = []
+        total_col_index = -1
+        for i, h in enumerate(headers):
+            if h == "Total":
+                total_col_index = i
+            elif i > 0 and h:  # Skip first column, must have value
+                date_columns.append((i, h))
 
-            # Get the Total (last column with data)
-            if connection_type == "Total" and len(row) > 1:
-                # Find the total column
-                for i, val in enumerate(row[1:], 1):
-                    if headers[i] == "Total" if i < len(headers) else False:
+        if date_columns:
+            # Latest date is the last date column before Total
+            summary["latest_date"] = date_columns[-1][1]
+            logger.info(f"Latest date column: {summary['latest_date']}")
+
+        # Parse each row
+        for row in values[1:]:
+            if not row or len(row) < 2:
+                continue
+
+            connection_type = str(row[0]).strip() if row[0] else ""
+
+            if connection_type == "Total":
+                # This is the totals row
+                # Get grand total from Total column
+                if total_col_index > 0 and total_col_index < len(row):
+                    try:
+                        summary["total_tickets"] = int(float(row[total_col_index]))
+                    except:
+                        pass
+
+                # Get latest day total (from the last date column)
+                if date_columns:
+                    last_date_idx = date_columns[-1][0]
+                    if last_date_idx < len(row):
                         try:
-                            summary["total_tickets"] = int(val)
+                            summary["latest_day_total"] = int(float(row[last_date_idx]))
                         except:
                             pass
-                # Get latest date total (second to last value before Total)
-                if len(row) >= 3:
+
+            elif connection_type:
+                # Regular connection type row - get its total
+                if total_col_index > 0 and total_col_index < len(row):
                     try:
-                        summary["latest_day_total"] = int(row[-2]) if row[-2] != "Total" else int(row[-3])
-                    except:
-                        pass
-            elif connection_type and connection_type != "Total":
-                # Get total for this connection type (last column)
-                if len(row) > 1:
-                    try:
-                        total = int(row[-1]) if row[-1] else 0
-                        summary["by_connection_type"][connection_type] = total
+                        total = int(float(row[total_col_index]))
+                        if total > 0:
+                            summary["by_connection_type"][connection_type] = total
                     except:
                         pass
 
-        # Get latest date from headers
-        date_headers = [h for h in headers[1:] if h and h != "Total"]
-        if date_headers:
-            summary["latest_date"] = date_headers[-1]
-
-        logger.info(f"Summary: Total={summary['total_tickets']}, Latest date={summary['latest_date']}")
+        logger.info(f"Summary: Total={summary['total_tickets']}, Latest date={summary['latest_date']}, Types={len(summary['by_connection_type'])}")
         return summary
 
     except Exception as e:
         logger.error(f"Error reading daily ticket summary: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
         return {}
 
 # =============================================================================
