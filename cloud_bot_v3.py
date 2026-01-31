@@ -328,54 +328,57 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
                 if result.get('success'):
                     data = result.get('data', {})
 
-                    # Build rich message with all details
-                    message = "*AUTOMATION COMPLETED!*\n\n"
+                    # Build message WITHOUT Markdown to avoid parsing errors
+                    # (connection type names may contain special characters)
+                    message = "AUTOMATION COMPLETED!\n"
+                    message += "=" * 25 + "\n\n"
 
                     # Email info
                     if data.get('email_subject'):
-                        message += f"*Email:* {data['email_subject'][:60]}\n"
+                        message += f"Email: {data['email_subject'][:60]}\n"
                     if data.get('email_date'):
-                        message += f"*Date:* {data['email_date']}\n"
+                        message += f"Date: {data['email_date']}\n"
 
                     message += "\n"
 
                     # Status indicators
                     if data.get('workflow_success'):
-                        message += "* Download: Done\n"
-                        message += "* Processing: Done\n"
+                        message += "[OK] Download: Done\n"
+                        message += "[OK] Processing: Done\n"
                     if data.get('uploaded_to_sheets'):
-                        message += "* Upload to Sheets: Done\n"
+                        message += "[OK] Upload to Sheets: Done\n"
 
                     # Ticket Summary
                     ticket_summary = data.get('ticket_summary', {})
                     if ticket_summary:
-                        message += "\n*--- TICKET SUMMARY ---*\n"
+                        message += "\n--- TICKET SUMMARY ---\n"
 
                         if ticket_summary.get('total_tickets'):
-                            message += f"*Total Tickets:* {ticket_summary['total_tickets']}\n"
+                            message += f"Total Tickets: {ticket_summary['total_tickets']}\n"
 
                         if ticket_summary.get('latest_date'):
-                            message += f"*Latest Date:* {ticket_summary['latest_date']}\n"
+                            message += f"Latest Date: {ticket_summary['latest_date']}\n"
 
                         if ticket_summary.get('latest_day_total'):
-                            message += f"*Today's Tickets:* {ticket_summary['latest_day_total']}\n"
+                            message += f"Today's Tickets: {ticket_summary['latest_day_total']}\n"
 
                         # Breakdown by connection type
                         by_type = ticket_summary.get('by_connection_type', {})
                         if by_type:
-                            message += "\n*By Connection Type:*\n"
+                            message += "\nBy Connection Type:\n"
                             for conn_type, count in sorted(by_type.items(), key=lambda x: x[1], reverse=True)[:5]:
                                 message += f"  {conn_type}: {count}\n"
 
                     # Duration
                     if data.get('duration'):
-                        message += f"\n*Time:* {data['duration']:.1f} seconds\n"
+                        message += f"\nTime: {data['duration']:.1f} seconds\n"
 
-                    # Link to sheets
+                    # Link to sheets (plain URL, no Markdown link)
                     if data.get('sheets_url'):
-                        message += f"\n[Open Google Sheets]({data['sheets_url']})"
+                        message += f"\nGoogle Sheets:\n{data['sheets_url']}"
 
-                    await update.message.reply_text(message, parse_mode='Markdown')
+                    # Send without Markdown parsing to avoid errors
+                    await update.message.reply_text(message)
                 else:
                     # Failed
                     await update.message.reply_text(
